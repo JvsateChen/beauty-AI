@@ -44,6 +44,42 @@ _TRACK_PARAM: dict[str, str] = {
     "保税仓": "utm_source",
 }
 
+#: 所有归因参数名：affiliate 档统一用 ``sub_id``，fallback 档用渠道各自的参数名。
+#: 归因统计必须按这张表判定 —— 只找 ``sub_id=`` 会把 fallback 档全部漏掉。
+ATTRIBUTION_PARAMS: tuple[str, ...] = (
+    "sub_id",
+    *sorted(set(_TRACK_PARAM.values())),
+)
+
+
+def attribution_param(channel: str) -> str | None:
+    """该渠道在 fallback 档使用的归因参数名（未收录则 None）。"""
+    return _TRACK_PARAM.get(channel)
+
+
+def has_attribution(url: str | None, channel: str | None = None) -> bool:
+    """链接是否携带归因标识。
+
+    传入 ``channel`` 时按该渠道的参数名判定；不传则只要命中任一已知归因参数即算。
+    """
+    if not url:
+        return False
+    keys = {k for k, _ in urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query)}
+    if not keys:
+        return False
+    if channel:
+        own = _TRACK_PARAM.get(channel)
+        return bool((own and own in keys) or "sub_id" in keys)
+    return any(p in keys for p in ATTRIBUTION_PARAMS)
+
+
+def is_affiliate_url(url: str | None) -> bool:
+    """是否为联盟推广链接（affiliate 档统一以 ``sub_id`` 标记，代表已启用佣金归因）。"""
+    if not url:
+        return False
+    keys = {k for k, _ in urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query)}
+    return "sub_id" in keys
+
 
 def build_sub_id(session_id: str | None, product_key: str, offer_id: str) -> str:
     """生成 ≤32 字符的稳定溯源标识（各联盟对 sub_id 长度普遍有 32 字符限制）。

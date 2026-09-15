@@ -1,5 +1,5 @@
 /**
- * 采选美妆 AI · 前端 API 客户端（v3.0）
+ * 采选美妆 AI · 前端 API 客户端
  *
  * 设计原则（这一版最重要的改动）：
  *
@@ -298,10 +298,31 @@ export interface CompareResult {
   disclaimer: string;
 }
 
+/** 比价行（仅「全网比价」段下发，供前端渲染成对齐列表） */
+export interface OfferLine {
+  id: string | null;
+  channel: string;
+  shop_name: string | null;
+  price: number;
+  list_price: number;
+  version: string | null;
+  origin: string | null;
+  drop_pct: number | null;
+  benefit_total: number | null;
+  is_lowest: boolean;
+  sponsored: boolean;
+  risk_tags: string[];
+}
+
 export interface DialogueSection {
   key: 'fit' | 'price' | 'version' | 'advice' | 'risk';
   title: string;
+  /** 纯文本版（复制粘贴 / 非结构化消费方用），与 reply 完全一致 */
   text: string;
+  /** 结构化要点：前端逐行渲染，避免整段结论挤成一大坨纯文字 */
+  lines: string[];
+  /** 仅「全网比价」段下发 */
+  items?: OfferLine[];
 }
 
 export interface DialogueIntent {
@@ -422,7 +443,10 @@ export interface SessionInfo {
 export interface ClicksSummary {
   total: number;
   by_channel: { channel: string; count: number }[];
-  tracked_with_sub_id?: number;
+  /** 链接带归因标识的点击数（含未接入联盟时的渠道自有参数名） */
+  with_attribution: number;
+  /** 其中真正走联盟推广链接（已启用佣金归因）的数量 */
+  affiliate_tracked: number;
   latest?: { channel: string; shop_name: string | null; at: string | null } | null;
   note: string;
 }

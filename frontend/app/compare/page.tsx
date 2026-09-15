@@ -237,7 +237,7 @@ export default function ComparePage() {
           {tab === 'version' && (
             <div className="space-y-3">
               <p className="text-xs text-muted">
-                v3.0 版本口径为 <b className="text-ink">国行 / 保税免税 / 海外版</b> 三类；
+                版本口径为 <b className="text-ink">国行 / 保税免税 / 海外版</b> 三类；
                 日版、韩免、欧版作为「海外版」下的产地细分。仅做差异科普，不做真伪判定。
               </p>
               {data.versions.map((v) => (
@@ -274,9 +274,7 @@ export default function ComparePage() {
                 </div>
               ))}
               <p className="text-[10px] text-muted border-l-2 border-gold pl-3 leading-relaxed">
-                本平台仅做风险筛查与提示，<b>不提供真伪鉴定服务、不承诺正品</b>；
-                商品正品性与售后维权由跳转电商平台全权负责。
-                临期判定口径为剩余保质期 ≤ 6 个月。
+                临期判定口径：剩余保质期 ≤ 6 个月。本段仅为风险筛查与提示，不构成真伪判定。
               </p>
             </div>
           )}

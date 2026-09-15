@@ -182,7 +182,7 @@ SECTION_ORDER: tuple[tuple[str, str], ...] = (
 )
 
 
-def _fit_section(intent: Intent, market: MarketResult | None, recs: list[dict]) -> str:
+def _fit_section(intent: Intent, market: MarketResult | None, recs: list[dict]) -> dict:
     ctx: list[str] = []
     if intent.skin_type:
         ctx.append(f"肤质「{intent.skin_type}」")
@@ -195,38 +195,66 @@ def _fit_section(intent: Intent, market: MarketResult | None, recs: list[dict]) 
     if market is not None:
         best = cheapest(market.offers)
         p = market.product
+        lines: list[str] = []
+        if ctx:
+            lines.append("按 " + " + ".join(ctx))
+
         line = f"{head}已为你锁定 {p.brand} {p.name}（{p.spec}）"
+        lines.append(f"已为你锁定 {p.brand} {p.name}（{p.spec}）")
         if best:
             line += (
                 f"，当前最低到手价 ¥{cents_to_yuan(best['price_cents'])}"
                 f"（{best.get('channel')}·{best.get('shop_name')}）"
             )
+            lines.append(
+                f"当前最低到手价 ¥{cents_to_yuan(best['price_cents'])}"
+                f" · {best.get('channel')}·{best.get('shop_name')}"
+            )
         line += "。"
         if not spec_matches(p, market.requested_spec):
-            line += f" 你提到的是 {market.requested_spec}，本次按收录规格 {p.spec} 的口径给价。"
-        return line
+            note = f"你提到的是 {market.requested_spec}，本次按收录规格 {p.spec} 的口径给价。"
+            line += " " + note
+            lines.append(note.rstrip("。"))
+        return {"text": line, "lines": lines}
 
     # 未锁定具体商品 → 给候选清单（不假装答了用户的问题）
     if recs:
         items = "；".join(
             f"{r['brand']} {r['name']}（{r['spec']}，官方价 ¥{r['list_price']:g}）" for r in recs
         )
+        lines = []
+        if ctx:
+            lines.append("按 " + " + ".join(ctx))
+        lines.append(f"匹配到 {len(recs)} 款可选项")
+        lines += [
+            f"{r['brand']} {r['name']} · {r['spec']} · 官方价 ¥{r['list_price']:g}"
+            for r in recs
+        ]
+
         tail = f"{head}按你的条件匹配到 {len(recs)} 款可选项：{items}。"
         if intent.unmatched_reason:
-            tail += f" {intent.unmatched_reason}"
-        tail += " 回复具体商品名，我再给你五维结论。"
-        return tail
+            # 独立成句，避免与下一句粘连读作「该商品暂未收录 回复具体商品名」
+            tail += f"{intent.unmatched_reason}。"
+            lines.append(intent.unmatched_reason)
+        tail += "回复具体商品名，我再给你五维结论。"
+        lines.append("回复具体商品名，我再给你五维结论")
+        return {"text": tail, "lines": lines}
 
-    return (
-        f"{intent.unmatched_reason or '暂未匹配到合适商品'}。"
+    reason = intent.unmatched_reason or "暂未匹配到合适商品"
+    catalog_hint = (
         "目前收录：雅诗兰黛小棕瓶、兰蔻小黑瓶、SK-II 神仙水、兰蔻菁纯面霜、"
-        "资生堂红腰子、迪奥 999 口红。"
+        "资生堂红腰子、迪奥 999 口红"
     )
+    return {
+        "text": f"{reason}。{catalog_hint}。",
+        "lines": [reason, catalog_hint],
+    }
 
 
-def _price_section(market: MarketResult | None) -> str:
+def _price_section(market: MarketResult | None) -> dict:
     if market is None or not market.offers:
-        return "暂无可比报价。"
+        return {"text": "暂无可比报价。", "lines": ["暂无可比报价"]}
+
     ranked = market.offers
     rows = "；".join(
         f"{o['channel']}·{o['shop_name']} ¥{o['price']}"
@@ -235,13 +263,19 @@ def _price_section(market: MarketResult | None) -> str:
         for o in ranked
     )
     best = cheapest(ranked)
-    parts = [
-        f"{describe_channels(ranked)} 共 {len(ranked)} 条报价，按到手价升序：{rows}。",
-    ]
+    channel_hint = describe_channels(ranked)
+
+    parts = [f"{channel_hint} 共 {len(ranked)} 条报价，按到手价升序：{rows}。"]
+    lines = [f"{channel_hint} 共 {len(ranked)} 条报价 · 按到手价升序"]
+
     if best:
         parts.append(
             f"最低为 {best['channel']}·{best['shop_name']} ¥{best['price']}"
             f"（官方价 ¥{best['list_price']}，优惠合计 ¥{best['benefit_total']}）。"
+        )
+        lines.append(
+            f"最低 {best['channel']}·{best['shop_name']} ¥{best['price']}"
+            f"（官方价 ¥{best['list_price']}，优惠合计 ¥{best['benefit_total']}）"
         )
     sponsored = [o for o in ranked if o.get("sponsored")]
     if sponsored:
@@ -249,33 +283,75 @@ def _price_section(market: MarketResult | None) -> str:
             "标注「赞助/佣金」的渠道为付费推广位，"
             "不参与排序、不影响名次，仅做信息披露。"
         )
+        lines.append("标注「赞助/佣金」的为付费推广位 · 不参与排序")
     parts.append("到手价由「官方价 − 优惠券 − 平台满减 − 赠品折算 − 平台补贴」推导，可逐项复核。")
+    lines.append("到手价由「官方价 − 优惠券 − 平台满减 − 赠品折算 − 平台补贴」推导，可逐项复核")
     if market.basis in ("seed", "mixed"):
         parts.append("【演示数据集】当前为功能验证用的内置数据，接入联盟凭据后自动切换为真实行情。")
+        lines.append("演示数据集 · 接入联盟凭据后自动切换为真实行情")
     if market.unavailable_channels:
         parts.append(f"本次未取到数据的渠道：{'、'.join(market.unavailable_channels)}。")
-    return "".join(parts)
+        lines.append(f"本次未取到数据的渠道：{'、'.join(market.unavailable_channels)}")
+
+    # 结构化报价行：前端渲染成对齐列表，避免把 5 条报价塞进一句话里
+    items = [
+        {
+            "id": o.get("id"),
+            "channel": o.get("channel"),
+            "shop_name": o.get("shop_name"),
+            "price": o.get("price"),
+            "list_price": o.get("list_price"),
+            "version": o.get("version"),
+            "origin": o.get("origin"),
+            "drop_pct": o.get("drop_pct"),
+            "benefit_total": o.get("benefit_total"),
+            "is_lowest": bool(best and o.get("id") == best.get("id")),
+            "sponsored": bool(o.get("sponsored")),
+            "risk_tags": list(o.get("risk_tags") or []),
+        }
+        for o in ranked
+    ]
+    return {"text": "".join(parts), "lines": lines, "items": items}
 
 
-def _version_section(product: Product, offers: list[dict], intent: Intent) -> str:
+def _version_section(product: Product, offers: list[dict], intent: Intent) -> dict:
     rows = get_version_compare(product, offers)
+
+    def _price_suffix(r: dict) -> str:
+        return (
+            f"最低 ¥{r['lowest_price']:g}" if r["lowest_price"] is not None
+            else "本次无报价"
+        )
+
     text = "；".join(
-        f"{r['version']}：{r['warranty']}，{r['ingredient_diff']}"
-        + (f"（最低 ¥{r['lowest_price']:g}）" if r["lowest_price"] is not None else "（本次无报价）")
+        f"{r['version']}：{r['warranty']}，{r['ingredient_diff']}（{_price_suffix(r)}）"
         for r in rows
     )
+    lines = [
+        f"{r['version']}（{_price_suffix(r)}）：{r['warranty']}；{r['ingredient_diff']}"
+        for r in rows
+    ]
+
     tail = (
         f"版本口径为 {' / '.join(VERSIONS)} 三类，日版 / 韩免 / 欧版属于「海外版」下的产地细分。"
         "本段仅为版本差异科普，不构成真伪判定，也不承诺正品。"
     )
+    lines.append(
+        f"版本口径为 {' / '.join(VERSIONS)} 三类 · 日版 / 韩免 / 欧版属「海外版」下的产地细分"
+    )
+    lines.append("本段仅为版本差异科普 · 不构成真伪判定，也不承诺正品")
     if intent.asks_version:
         tail += " 你问到版本差异，建议优先看「国内联保」与「保质期标注方式」两项。"
-    return f"{text}。{tail}"
+        lines.append("建议优先看「国内联保」与「保质期标注方式」两项")
+    return {"text": f"{text}。{tail}", "lines": lines}
 
 
-def _advice_section(market: MarketResult | None, trend: dict | None) -> str:
+def _advice_section(market: MarketResult | None, trend: dict | None) -> dict:
     if not trend:
-        return "行情数据暂不可用，无法判定当前档位。"
+        return {
+            "text": "行情数据暂不可用，无法判定当前档位。",
+            "lines": ["行情数据暂不可用 · 无法判定当前档位"],
+        }
     level = trend["level"]
     advice = trend["advice"]
     reason = trend["advice_reason"]
@@ -295,12 +371,29 @@ def _advice_section(market: MarketResult | None, trend: dict | None) -> str:
     basis_note = (
         "（行情基于内置演示数据集）" if trend.get("data_basis") == "seed" else ""
     )
-    return f"当前处于 90 天行情「{level}」区间，建议：{advice}。{reason}{extra}{shape_note}{basis_note}"
+
+    lines = [f"90 天行情「{level}」区间 · 建议：{advice}"]
+    if reason:
+        lines.append(reason.rstrip("。"))
+    lines.append(
+        f"90 天区间 ¥{trend['low_90d']:g} – ¥{trend['high_90d']:g}"
+        f" · 均价 ¥{trend['avg_90d']:g} · 现价 ¥{trend['current']:g}"
+    )
+    if shape_note:
+        lines.append(shape_note.rstrip("。"))
+    if basis_note:
+        lines.append("行情基于内置演示数据集")
+    return {
+        "text": f"当前处于 90 天行情「{level}」区间，建议：{advice}。{reason}{extra}{shape_note}{basis_note}",
+        "lines": lines,
+    }
 
 
-def _risk_section(market: MarketResult | None) -> str:
+def _risk_section(market: MarketResult | None) -> dict:
+    lines: list[str] = []
     if market is None or not market.offers:
         body = "暂无可筛查的报价。"
+        lines.append("暂无可筛查的报价")
     else:
         hits: dict[str, list[str]] = {}
         for o in market.offers:
@@ -310,16 +403,26 @@ def _risk_section(market: MarketResult | None) -> str:
             body = "本次命中的风险标签：" + "；".join(
                 f"{t}（{'、'.join(v)}）" for t, v in hits.items()
             ) + "。"
+            lines += [f"{t} · {'、'.join(v)}" for t, v in hits.items()]
         else:
             body = "本次报价未命中四大风险标签。"
+            lines.append("本次报价未命中四大风险标签")
         missing = [t for t in RISK_TAGS if t not in hits]
         if missing:
             body += f" 未命中的标签：{'、'.join(missing)}。"
-    return (
-        body
-        + " 本平台仅做风险筛查与提示，不提供真伪鉴定服务、不承诺正品；"
-        "商品正品性与售后维权由跳转电商平台全权负责。所有价格为行情参考价，非锁定成交价。"
-    )
+            lines.append(f"未命中：{'、'.join(missing)}")
+
+    # 全站顶部已有免责条，这里只保留与风险筛查直接相关的一句，避免整页重复同一段话
+    lines.append("本平台仅做风险筛查与提示 · 不提供真伪鉴定服务、不承诺正品")
+    return {
+        "text": (
+            body
+            + " 本平台仅做风险筛查与提示，不提供真伪鉴定服务、不承诺正品；"
+            "商品正品性与售后维权由跳转电商平台全权负责。所有价格为行情参考价，非锁定成交价。"
+        ),
+        "lines": lines,
+    }
+
 
 
 def build_sections(
@@ -331,20 +434,36 @@ def build_sections(
 ) -> list[dict]:
     product = market.product if market else None
     offers = market.offers if market else []
-    texts = {
+
+    no_version = {
+        "text": "未锁定具体商品，暂不做版本对比。",
+        "lines": ["未锁定具体商品 · 暂不做版本对比"],
+    }
+    bodies = {
         "fit": _fit_section(intent, market, recs),
         "price": _price_section(market),
         "version": (
-            _version_section(product, offers, intent) if product
-            else "未锁定具体商品，暂不做版本对比。"
+            _version_section(product, offers, intent) if product else no_version
         ),
         "advice": _advice_section(market, trend),
         "risk": _risk_section(market),
     }
-    return [
-        {"key": k, "title": title, "text": texts[k].strip()}
-        for k, title in SECTION_ORDER
-    ]
+
+    out: list[dict] = []
+    for key, title in SECTION_ORDER:
+        body = bodies[key]
+        section: dict = {
+            "key": key,
+            "title": title,
+            # text 为纯文本版（复制粘贴 / 非结构化消费方），与 reply 完全一致
+            "text": body["text"].strip(),
+            # lines 为结构化要点，前端按行渲染，避免整段结论挤成一大坨纯文字
+            "lines": [ln for ln in body.get("lines", []) if ln],
+        }
+        if body.get("items"):
+            section["items"] = body["items"]
+        out.append(section)
+    return out
 
 
 def render_reply(sections: list[dict]) -> str:

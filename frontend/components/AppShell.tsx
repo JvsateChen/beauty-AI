@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Icon, type IconName } from '@/components/Icons';
 import { getHealth } from '@/lib/api';
 
-// v3.0 导航 = MVP 五大核心模块一一对应
+// 导航 = MVP 五大核心模块一一对应
 const navItems: { href: string; label: string; icon: IconName; title: string }[] = [
   { href: '/', label: '对话', icon: 'chat', title: 'M1 AI 智能对话选型' },
   { href: '/compare', label: '比价', icon: 'scale', title: 'M2 全网结构化比价看板' },
@@ -16,31 +16,23 @@ const navItems: { href: string; label: string; icon: IconName; title: string }[]
 ];
 
 /**
- * 全站免责条文案。
+ * 全站顶部免责条（一句话版）。
  *
- * 与 `backend/core/config.py` 的 `settings.disclaimer` 必须一致 ——
- * 后端各接口都会下发同一段文本（页面优先使用接口返回值），
- * 这里只是静态外壳（首屏 / 页脚）在拿到响应前的兜底副本。
+ * 完整免责声明由后端 `settings.disclaimer` 下发，在各页面按需引用；
+ * 这里只做全站可见的一句话提示，避免同一段话在页面上重复出现四五次。
  */
-const DISCLAIMER =
-  '本平台仅聚合公开价格、货源及行情信息，不提供真伪鉴定服务，不承诺正品；' +
-  '商品正品性、售后维权由跳转电商平台全权负责。所有价格均为「行情参考价」，非锁定成交价。';
+const DISCLAIMER = '不提供真伪鉴定服务、不承诺正品；价格为「行情参考价」，非锁定成交价。';
 
 type Health = 'checking' | 'online' | 'offline';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [health, setHealth] = useState<Health>('checking');
-  const [version, setVersion] = useState<string>('');
 
   useEffect(() => {
     let alive = true;
     getHealth()
-      .then((r) => {
-        if (!alive) return;
-        setHealth('online');
-        setVersion(r.version);
-      })
+      .then(() => alive && setHealth('online'))
       .catch(() => alive && setHealth('offline'));
     return () => {
       alive = false;
@@ -57,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         title="后端服务可用"
       >
         <span className="w-1.5 h-1.5 rounded-full bg-success" />
-        服务正常 {version && `v${version}`}
+        服务正常
       </span>
     ) : health === 'offline' ? (
       <span
@@ -90,9 +82,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Icon name="sparkles" size={17} />
             </span>
             <span className="font-bold text-lg">采选美妆 AI</span>
-            <span className="text-[10px] text-muted border border-line rounded px-1.5 py-0.5">
-              v3.0
-            </span>
           </Link>
           <nav className="flex items-center gap-1">
             {navItems.map((it) => (
@@ -131,9 +120,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Icon name="sparkles" size={16} />
             <span className="font-bold text-sm">采选美妆 AI</span>
           </Link>
-          <span className="flex items-center gap-2">
+          <span className="inline-flex items-center text-[10px] bg-white/15 rounded px-2 py-1">
             {healthChip}
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded">v3.0</span>
           </span>
         </div>
       </header>
@@ -146,14 +134,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <footer className="hidden md:block border-t border-line bg-white">
         <div className="max-w-6xl mx-auto px-6 py-4 text-[11px] text-muted leading-relaxed">
           <Icon name="warn" size={12} className="mr-1 align-[-0.15em]" />
-          本平台仅做
-          <b className="text-ink">版本差异科普 · 临期风险筛查 · 渠道优劣提示</b>，
-          <b className="text-ink">不做真伪判定、不承诺正品</b>；所有价格为
-          <b className="text-ink">行情参考价</b>，非锁定成交价。排序由到手价决定，
-          <b className="text-ink">佣金与赞助位不参与默认排序</b>，付费推广位强制标注「赞助/佣金」。
-          <div className="mt-1">
-            © 2026 采选美妆 AI · 国际大牌护肤美妆 AI 比价平台 · v3.0
-          </div>
+          排序由到手价决定，<b className="text-ink">佣金与赞助位不参与默认排序</b>，
+          付费推广位强制标注「赞助/佣金」。
+          <div className="mt-1">© 2026 采选美妆 AI</div>
         </div>
       </footer>
 

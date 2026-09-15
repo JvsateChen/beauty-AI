@@ -130,14 +130,7 @@ export default function MyPage() {
           </h2>
           <div className="grid grid-cols-2 gap-2.5 mb-3">
             <Field label="累计跳转次数" value={String(clicks.total)} />
-            <Field
-              label="已带佣金归因"
-              value={
-                clicks.tracked_with_sub_id == null
-                  ? '—'
-                  : String(clicks.tracked_with_sub_id)
-              }
-            />
+            <Field label="已带归因标识" value={String(clicks.with_attribution)} />
           </div>
           {clicks.by_channel.length > 0 && (
             <div className="flex flex-wrap gap-1.5">

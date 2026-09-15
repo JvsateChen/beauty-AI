@@ -26,7 +26,7 @@ from core.domain import cheapest
 from core.errors import NotFoundError
 from core.models import OfferClick, UserSession
 from core.security import optional_session
-from providers.cps import build_sub_id
+from providers.cps import build_sub_id, has_attribution, is_affiliate_url
 from services import market as market_service
 
 logger = logging.getLogger("caixuan.offer")
@@ -152,7 +152,14 @@ def clicks_summary(
 ):
     """当前会话的点击概览（「我的」页展示；也为将来佣金对账预留口径）。"""
     if session is None:
-        return {"total": 0, "by_channel": [], "note": "尚无会话，无法统计。"}
+        return {
+            "total": 0,
+            "by_channel": [],
+            "with_attribution": 0,
+            "affiliate_tracked": 0,
+            "latest": None,
+            "note": "尚无会话，无法统计。",
+        }
     rows = list(db.scalars(
         select(OfferClick)
         .where(OfferClick.session_id == session.id)
@@ -162,14 +169,25 @@ def clicks_summary(
     by_channel: dict[str, int] = {}
     for r in rows:
         by_channel[r.channel] = by_channel.get(r.channel, 0) + 1
-    tracked = sum(1 for r in rows if r.cps_url and "sub_id=" in (r.cps_url or ""))
+
+    # 两个口径要分开统计，不能混为一谈：
+    #   with_attribution  —— 链接里带了归因标识（fallback 档用渠道各自的参数名，
+    #                        如拼多多 refer_page_name / 天猫 utparam / 京东 utm_source）
+    #   affiliate_tracked —— 真正走联盟推广链接（affiliate 档，带 sub_id，已启用佣金归因）
+    # 旧实现只找字面 "sub_id="，导致 fallback 档一律算 0，指标长期被低估。
+    with_attribution = sum(
+        1 for r in rows if has_attribution(r.cps_url, r.channel)
+    )
+    affiliate_tracked = sum(1 for r in rows if is_affiliate_url(r.cps_url))
+
     return {
         "total": len(rows),
         "by_channel": [
             {"channel": k, "count": v}
             for k, v in sorted(by_channel.items(), key=lambda x: -x[1])
         ],
-        "tracked_with_sub_id": tracked,
+        "with_attribution": with_attribution,
+        "affiliate_tracked": affiliate_tracked,
         "latest": (
             {
                 "channel": rows[0].channel,
@@ -178,8 +196,8 @@ def clicks_summary(
             } if rows else None
         ),
         "note": (
-            "点击已记录。佣金归因需各渠道联盟凭据接入后生效；"
-            "未接入时跳转为官方搜索深链，不产生佣金。"
+            "点击已记录。带归因标识的链接可对账；"
+            "佣金归因需各渠道联盟凭据接入后生效，未接入时跳转为官方搜索深链，不产生佣金。"
         ),
     }
 

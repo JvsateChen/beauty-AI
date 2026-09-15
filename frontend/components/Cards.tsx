@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Icon, type IconName } from '@/components/Icons';
 import { trackClick, goUrl, type Benefits, type DataBasis, type Offer, type RiskTag, type Version, type VersionRow } from '@/lib/api';
 
-/** 风险标签配色（v3.0 全站四个标签） */
+/** 风险标签配色（全站四个标签） */
 export const RISK_TAG_CLS: Record<RiskTag, string> = {
   临期预警: 'bg-warn/10 text-warn',
   无专柜联保: 'bg-danger/10 text-danger',

@@ -9,6 +9,7 @@ import {
   postChat,
   type ChatResponse,
   type DialogueSection,
+  type OfferLine,
   type Product,
 } from '@/lib/api';
 import { setLastQuery, withQuery } from '@/lib/session';
@@ -33,6 +34,82 @@ const FALLBACK_EXAMPLES = [
   '想买SK-II神仙水，怎么区分国行和免税版，哪个性价比更高',
   '迪奥999，哪家渠道最便宜，有没有临期风险',
 ];
+
+/** 把 ¥ 金额加粗，让关键数字能从文字里跳出来 */
+function Rich({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(¥[\d.,]+)/g).map((p, i) =>
+        /^¥[\d.,]+$/.test(p) ? (
+          <b key={i} className="text-brand-rose-dark tabular-nums">
+            {p}
+          </b>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+/** 要点逐行渲染 —— 结论不再是一整段话，而是可扫读的列表 */
+function Lines({ lines }: { lines: string[] }) {
+  return (
+    <ul className="space-y-1.5">
+      {lines.map((ln, i) => (
+        <li key={i} className="flex gap-2 text-xs text-ink leading-relaxed">
+          <span className="mt-[5px] w-1 h-1 rounded-full bg-brand-rose/50 shrink-0" />
+          <span className="flex-1">
+            <Rich text={ln} />
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** 报价对齐列表：渠道 / 版本 / 到手价三栏对齐，比塞进一句话好读得多 */
+function OfferRows({ items }: { items: OfferLine[] }) {
+  return (
+    <div className="rounded-lg border border-line overflow-hidden">
+      {items.map((o) => (
+        <div
+          key={o.id ?? `${o.channel}-${o.shop_name}`}
+          className="flex items-center gap-3 px-2.5 py-2 border-b border-line last:border-b-0 bg-cream/40"
+        >
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <b className="text-xs text-ink truncate">{o.shop_name}</b>
+              {o.is_lowest && (
+                <span className="text-[10px] bg-brand-rose-soft text-brand-rose-dark rounded px-1.5 py-0.5">
+                  最低
+                </span>
+              )}
+              {o.sponsored && (
+                <span className="text-[10px] bg-cream text-muted border border-line rounded px-1.5 py-0.5">
+                  赞助
+                </span>
+              )}
+            </div>
+            <div className="text-[10px] text-muted mt-0.5 truncate">
+              {o.channel}
+              {o.version && ` · ${o.version}`}
+              {o.origin && ` · ${o.origin}`}
+              {o.risk_tags.length > 0 && ` · ${o.risk_tags.join('、')}`}
+            </div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-sm font-bold text-brand-rose-dark tabular-nums">¥{o.price}</div>
+            <div className="text-[10px] text-muted whitespace-nowrap">
+              官方价 ¥{o.list_price}
+              {o.drop_pct != null && ` · 省 ${o.drop_pct}%`}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [input, setInput] = useState('');
@@ -98,6 +175,7 @@ export default function HomePage() {
                   e?.offline
                     ? '无法连接服务端，本次没有取到任何行情数据。为避免误导，这里不展示任何示例价格。'
                     : e?.message ?? '服务暂时不可用，请稍后重试。',
+                lines: [],
               },
             ],
             reply: '',
@@ -124,9 +202,8 @@ export default function HomePage() {
         <h1 className="text-2xl md:text-3xl font-bold text-ink">
           AI 对话选型 · 多平台比价 · 货源风险筛查
         </h1>
-        <p className="text-muted mt-2 text-sm md:text-base">
-          一句话说清预算、肤质、诉求，AI 帮你选品、跨 5 大渠道比价、区分版本差异、判定入手时机，
-          并筛查临期与售后风险。
+        <p className="text-muted mt-2 text-sm">
+          说清预算和诉求，AI 帮你选品、跨 5 大渠道比价、看行情走势、筛临期与售后风险。
         </p>
       </div>
 
@@ -186,8 +263,7 @@ export default function HomePage() {
                 ))}
               </div>
               <div className="text-[10px] text-muted mt-3 leading-relaxed">
-                我只做版本差异科普与风险筛查，<b>不做真伪鉴定、不承诺正品</b>；
-                给出的都是「行情参考价」。每次回答都会标明数据来源。
+                每次回答都会标明数据来源。
               </div>
             </div>
           </div>
@@ -227,21 +303,47 @@ export default function HomePage() {
                   </div>
 
                   <div className="space-y-2">
-                    {d.sections.map((s: DialogueSection) => (
-                      <div key={s.key} className="bg-white border border-line rounded-xl p-3.5">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <Icon
-                            name={SECTION_ICON[s.key] ?? 'info'}
-                            size={13}
-                            className="text-brand-rose-dark"
-                          />
-                          <span className="text-xs font-bold text-brand-rose-dark">{s.title}</span>
+                    {d.sections.map((s: DialogueSection) => {
+                      const lines = s.lines ?? [];
+                      const hasRows = Boolean(s.items?.length);
+                      return (
+                        <div
+                          key={s.key}
+                          className="bg-white border border-line rounded-xl p-3.5"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <Icon
+                              name={SECTION_ICON[s.key] ?? 'info'}
+                              size={13}
+                              className="text-brand-rose-dark"
+                            />
+                            <span className="text-xs font-bold text-brand-rose-dark">
+                              {s.title}
+                            </span>
+                          </div>
+
+                          {hasRows ? (
+                            <>
+                              {/* 约定：lines[0] 是报价行的导读（渠道与排序口径），
+                                  其余 lines 为补充说明，排在报价行之后 */}
+                              {lines[0] && (
+                                <p className="text-[10px] text-muted mb-1.5">
+                                  <Rich text={lines[0]} />
+                                </p>
+                              )}
+                              <OfferRows items={s.items as OfferLine[]} />
+                              {lines.length > 1 && (
+                                <div className="mt-2.5">
+                                  <Lines lines={lines.slice(1)} />
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <Lines lines={lines.length > 0 ? lines : [s.text]} />
+                          )}
                         </div>
-                        <p className="text-xs text-ink leading-relaxed whitespace-pre-wrap">
-                          {s.text}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {d.note && (
@@ -326,11 +428,6 @@ export default function HomePage() {
           </button>
         </div>
       </div>
-
-      <p className="text-[10px] text-muted mt-4 leading-relaxed">
-        提示：AI 结论基于公开价格与行情信息聚合，所有价格均为「行情参考价」。
-        排序由到手价决定，佣金与赞助位不参与默认排序。
-      </p>
     </div>
   );
 }
