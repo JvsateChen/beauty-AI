@@ -1,0 +1,23 @@
+# 采选美妆 AI · 后端依赖（一期上线口径）
+# 安装：pip install -r requirements.txt
+
+# --- Web 框架 ---
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+python-dotenv==1.0.1
+
+# --- 数据访问（开发 SQLite / 生产 Postgres 同一套代码）---
+SQLAlchemy==2.0.35
+# 生产用 Postgres 时才需要（DATABASE_URL=postgresql+psycopg://...）
+psycopg[binary]==3.2.3
+
+# --- 出网（联盟接口 / 微信推送）---
+httpx==0.27.2
+
+# --- 定时任务（价格轮询与降价推送）---
+APScheduler==3.10.4
+
+# --- 测试 ---
+pytest==8.3.3

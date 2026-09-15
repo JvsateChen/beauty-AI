@@ -1,0 +1,74 @@
+# 采选美妆 AI · 一键起服务（Backend + Postgres + Frontend）
+#
+#   docker compose up -d --build
+#   前端 http://localhost:3000   后端文档 http://localhost:8000/docs
+#
+# 首次启动前：cp backend/.env.example backend/.env 并至少确认
+#   · DATA_MODE=seed 时可直接跑（演示数据集，功能完整）
+#   · 要真实行情则填各渠道联盟凭据并把 DATA_MODE 改成 hybrid
+#   · 要微信推送则填 WECHAT_* 并置 PUSH_ENABLED=true
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: caixuan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caixuan_dev_pw}
+      POSTGRES_DB: caixuan
+      TZ: Asia/Shanghai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U caixuan -d caixuan']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # 生产不要对公网暴露数据库端口；本地需要直连再打开
+    # ports:
+    #   - '5432:5432'
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENV: ${ENV:-prod}
+      LOG_JSON: 'true'
+      DATABASE_URL: postgresql+psycopg://caixuan:${POSTGRES_PASSWORD:-caixuan_dev_pw}@db:5432/caixuan
+      # 浏览器访问前端的域名，必须显式列出（生产禁止 *）
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATA_MODE: ${DATA_MODE:-seed}
+      PUSH_ENABLED: ${PUSH_ENABLED:-false}
+      POLL_ENABLED: ${POLL_ENABLED:-true}
+    env_file:
+      # 需要 Docker Compose v2.24+ 才支持 path/required 写法；
+      # 老版本请直接写成  env_file: [./backend/.env]（此时必须保证该文件存在）
+      - path: ./backend/.env
+        required: false
+    ports:
+      - '8000:8000'
+    volumes:
+      # 仅用于本地调试热更新；生产请删掉这行用镜像内代码
+      - ./backend/data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # ★ 必须是「浏览器能访问到的」后端地址，不是容器内网名
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8000}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '3000:3000'
+
+volumes:
+  pgdata:

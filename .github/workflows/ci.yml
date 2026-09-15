@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支的重复推送只保留最新一次
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: 后端 · 测试与冒烟
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 单元测试 + 接口契约测试
+        env:
+          # 测试自带隔离环境（临时 SQLite / DATA_MODE=seed / POLL_ENABLED=false），
+          # 这里显式声明意图，避免误连真实库
+          ENV: dev
+          DATA_MODE: seed
+          POLL_ENABLED: 'false'
+          PUSH_ENABLED: 'false'
+        run: pytest -q
+
+      - name: 启动服务并跑冒烟检查
+        run: |
+          python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/healthz && break
+            sleep 1
+          done
+          python scripts/smoke.py --base http://127.0.0.1:8000
+
+  frontend:
+    name: 前端 · 类型与构建
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 构建
+        env:
+          NEXT_PUBLIC_API_BASE: http://127.0.0.1:8000
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+
+      - name: 检查 UI 代码里是否残留 emoji 图标
+        run: node scripts/check-no-emoji.mjs
