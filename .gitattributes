@@ -1,0 +1,82 @@
+# ============================================================================
+# 换行符与文件类型规范
+# ----------------------------------------------------------------------------
+# 统一策略：仓库内一律存储 LF，检出也保持 LF。
+# 理由：部署目标是 Linux 容器（Dockerfile / docker-compose），
+#       且团队可能在 macOS / Windows 之间协作，统一 LF 可避免
+#       「本地能跑、容器报错」这类 CRLF 引发的隐蔽问题，
+#       也让 diff 不再被整文件换行差异污染。
+# 说明：Windows 下建议同时把 git 的 autocrlf 设为 false：
+#       git config --global core.autocrlf false
+# ============================================================================
+
+# 默认：自动识别文本文件，并强制 LF
+* text=auto eol=lf
+
+# ---------------------------------------------------------------- 文本类型
+*.py         text eol=lf
+*.pyi        text eol=lf
+*.ts         text eol=lf
+*.tsx        text eol=lf
+*.js         text eol=lf
+*.mjs        text eol=lf
+*.cjs        text eol=lf
+*.json       text eol=lf
+*.css        text eol=lf
+*.scss       text eol=lf
+*.html       text eol=lf
+*.md         text eol=lf
+*.txt        text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.toml       text eol=lf
+*.ini        text eol=lf
+*.cfg        text eol=lf
+*.sql        text eol=lf
+*.svg        text eol=lf
+
+# 容器内直接执行的文件：若带 CRLF 会报 bad interpreter，必须锁死 LF
+*.sh         text eol=lf
+Dockerfile   text eol=lf
+
+# 无后缀的配置类文件
+.dockerignore  text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+.env.example   text eol=lf
+LICENSE        text eol=lf
+
+# ---------------------------------------------------------------- 二进制文件
+# 禁止任何换行转换与 diff，避免文件被损坏
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.ico        binary
+*.webp       binary
+*.avif       binary
+*.bmp        binary
+*.svgz       binary
+*.pdf        binary
+*.zip        binary
+*.gz         binary
+*.tar        binary
+*.7z         binary
+*.woff       binary
+*.woff2      binary
+*.ttf        binary
+*.otf        binary
+*.eot        binary
+*.db         binary
+*.sqlite     binary
+*.sqlite3    binary
+*.xlsx       binary
+*.xls        binary
+*.docx       binary
+*.pptx       binary
+
+# ---------------------------------------------------------------- diff 与统计
+# 依赖锁文件：折叠 diff，并从语言统计中排除（不算手写代码量）
+package-lock.json   -diff linguist-generated=true
+*.min.js            -diff linguist-generated=true
+*.min.css           -diff linguist-generated=true

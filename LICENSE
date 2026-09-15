@@ -1,0 +1,52 @@
+版权所有 (c) 2026 JvsateChen。保留所有权利。
+
+本软件（"采选美妆 AI" / "beauty-AI"，含源代码、文档、设计稿、数据模型与
+相关材料，以下统称"本软件"）为 JvsateChen（以下称"权利人"）的专有财产，
+受中华人民共和国著作权法及适用的国际著作权条约保护。
+
+未经权利人事先书面许可，任何个人或组织不得：
+
+  1. 复制、下载、存储、传播、发布或以任何形式向第三方提供本软件的全部或部分；
+  2. 修改、改编、翻译、演绎或基于本软件创作衍生作品；
+  3. 反向工程、反编译或反汇编本软件的任何部分；
+  4. 将本软件或其任何部分用于商业用途，包括但不限于转售、SaaS 分发、
+     或集成至商业产品或服务中；
+  5. 移除、遮蔽或修改本软件中的任何著作权、商标或其他权利声明。
+
+本软件按"现状"提供，不附带任何明示或默示的担保，包括但不限于对适销性、
+特定用途适用性及不侵权的担保。在任何情况下，权利人不对因使用或无法使用
+本软件而产生的任何索赔、损害或其他责任承担义务。
+
+如需商业授权或使用许可，请联系权利人。
+
+---
+
+Copyright (c) 2026 JvsateChen. All rights reserved.
+
+This software ("采选美妆 AI" / "beauty-AI", including its source code,
+documentation, designs, data models and related materials, the "Software")
+is the proprietary property of JvsateChen (the "Owner") and is protected by
+the copyright laws of the People's Republic of China and applicable
+international copyright treaties.
+
+No individual or entity may, without the prior written permission of the
+Owner:
+
+  1. copy, download, store, distribute, publish or otherwise make the
+     Software available to any third party, in whole or in part;
+  2. modify, adapt, translate or create derivative works based on the
+     Software;
+  3. reverse engineer, decompile or disassemble any part of the Software;
+  4. use the Software for any commercial purpose, including resale, SaaS
+     distribution, or integration into commercial products or services;
+  5. remove, obscure or alter any copyright, trademark or other proprietary
+     notice contained in the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+OWNER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+For commercial licensing, please contact the Owner.
